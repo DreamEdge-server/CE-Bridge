@@ -14,7 +14,10 @@ out/
 libs/
 !server/libs/
 server/libs/*
+!server/libs/README.md
 !server/libs/craft-engine-paper-plugin-26.7.4.jar
+!server/libs/craft-engine-paper-plugin-26.9.2.jar
+!server/libs/craft-engine-adventure-26.7.4.jar
 
 # Claude Code local config
 .claude/

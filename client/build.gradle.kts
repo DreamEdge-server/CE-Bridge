@@ -18,19 +18,28 @@ data class ClientProfile(
 )
 
 val profiles = mapOf(
-    // One 26.x artifact built against the requested 26.2 API.
-    "26.x" to ClientProfile(
+    // One 26.2 artifact built against the 26.2 API.
+    "26.2" to ClientProfile(
         "26.x", "26.2", "0.19.3", "0.155.0+26.2", ">=26.2 <27", 25,
         "zE4WIFwL", "JB4B8a9g",
         "libs/fabric-loader-0.19.3.jar",
         "libs/jei-26.2-fabric-30.16.0.131.jar",
         "libs/Jade-mc26.2-Fabric-26.2.10.jar"
+    ),
+    // 26.3 target. targetFamily stays "26.x" (the wire label); minecraftDependency is bounded
+    // to >=26.3 so the 26.2-built jar keeps its own range.
+    "26.3" to ClientProfile(
+        "26.x", "26.3", "0.19.5", "0.161.0+26.3", ">=26.3 <27", 25,
+        "pjjNQBoS", "71CTWqdE",
+        "libs/fabric-loader-0.19.5.jar",
+        "libs/jei-26.3-fabric-31.9.0.56.jar",
+        "libs/Jade-mc26.3-Fabric-26.3.5.jar"
     )
 )
 
 val target = providers.gradleProperty("target")
     .orElse(providers.gradleProperty("bridgeTarget"))
-    .orElse("26.x")
+    .orElse("26.2")
     .get()
 val profile = profiles[target] ?: throw GradleException(
     "Unsupported client target '$target'. Available profiles: ${profiles.keys.joinToString()}")

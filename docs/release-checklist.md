@@ -4,8 +4,8 @@
 
 - [x] Use Java 25 for server/ and client/.
 - [x] Use Java 21 for client-legacy/ and protocol/.
-- [x] Run server clean shadowJar -Ptarget=26.x.
-- [x] Run client clean build -Ptarget=26.x.
+- [x] Run server clean shadowJar -Ptarget=26.2.
+- [x] Run client clean build -Ptarget=26.2.
 - [x] Run legacy client clean build.
 - [x] Run protocolTest and handshakeTest.
 - [x] Inspect all three jars and record SHA-256 hashes.

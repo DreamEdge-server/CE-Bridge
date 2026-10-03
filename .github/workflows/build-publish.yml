@@ -44,7 +44,7 @@ jobs:
           echo "JAVA_HOME=${{ steps.java21.outputs.path }}" >> "$GITHUB_ENV"
           echo "GRADLE_OPTS=${GRADLE_OPTS} -Dorg.gradle.java.installations.paths=${{ steps.java25.outputs.path }}" >> "$GITHUB_ENV"
 
-      - name: Download 26.x client compile dependencies
+      - name: Download client compile dependencies
         shell: bash
         run: |
           set -euo pipefail
@@ -70,6 +70,18 @@ jobs:
             "https://cdn.modrinth.com/data/nvQzSEkH/versions/JB4B8a9g/Jade-mc26.2-Fabric-26.2.10.jar" \
             "client/libs/Jade-mc26.2-Fabric-26.2.10.jar" \
             "5964E943CD56A4BA9FDF6BE4ED351E3B57811CE3026714348590270087F6D198C64D06B5EFEA7968752CBB2A3A7FBA8974E014CA7573608930C87365422215EC"
+          download_sha512 \
+            "https://maven.fabricmc.net/net/fabricmc/fabric-loader/0.19.5/fabric-loader-0.19.5.jar" \
+            "client/libs/fabric-loader-0.19.5.jar" \
+            "11B55302B9B4D7C438808D1FE47981785CF2B22ECBA0E87887E107432D2162238AD0D9FE35630E2871043B515D95A611E3CD3F8DFD03B758C444537899B665B6"
+          download_sha512 \
+            "https://cdn.modrinth.com/data/u6dRKJwZ/versions/pjjNQBoS/jei-26.3-fabric-31.9.0.56.jar" \
+            "client/libs/jei-26.3-fabric-31.9.0.56.jar" \
+            "2D1D3D436D4123DFF057FEF8FC65F21F7136D220FD01F8467BE2DE7B771140C06DAF0753C1B9AB15E02D5451A100FC966FF23692600842051AB61EFBA80DD627"
+          download_sha512 \
+            "https://cdn.modrinth.com/data/nvQzSEkH/versions/71CTWqdE/Jade-mc26.3-Fabric-26.3.5.jar" \
+            "client/libs/Jade-mc26.3-Fabric-26.3.5.jar" \
+            "2E7331E62EB6658268AE92DC42DE8B469F50DD6C6A9D2546A6F649BAE97C2CDFD8D4C1560948CF46269175D2C79C6C47A36A02685E39D476768D18FBB2A28703"
 
       - name: Verify bundled CraftEngine compile dependency
         shell: bash
@@ -77,41 +89,57 @@ jobs:
           set -euo pipefail
           printf '%s  %s\n' "8771A23713BEABCFEFA46DD0B4C768D7EB1112DBDE803243C972C08EC157D406" "server/libs/craft-engine-paper-plugin-26.7.4.jar" \
             | sha256sum --check --status -
+          printf '%s  %s\n' "19535F1987E8A27EBE8C6D811E7DEAE9A1F05DBD3EF3359435AFF5A3D819E0F9" "server/libs/craft-engine-paper-plugin-26.9.2.jar" \
+            | sha256sum --check --status -
+          printf '%s  %s\n' "726680EA16C6E3241D24D433602B9FD63DA7B527C4B96BE39FDC49D023A88BEC" "server/libs/craft-engine-adventure-26.7.4.jar" \
+            | sha256sum --check --status -
 
       - name: Run protocol tests
         working-directory: client
         shell: bash
         run: bash ./gradlew --no-daemon -p ../protocol protocolTest handshakeTest
 
-      - name: Build Fabric 26.x client
+      - name: Build Fabric 26.2 client
         working-directory: client
         shell: bash
-        run: bash ./gradlew --no-daemon clean build -Ptarget=26.x
+        run: bash ./gradlew --no-daemon clean build -Ptarget=26.2
+
+      - name: Build Fabric 26.3 client
+        working-directory: client
+        shell: bash
+        run: bash ./gradlew --no-daemon build -Ptarget=26.3
 
       - name: Build Fabric 1.21.11 client
         working-directory: client
         shell: bash
         run: bash ./gradlew --no-daemon -p ../client-legacy clean build
 
-      - name: Build Paper 26.x plugin with shadowJar
+      - name: Build Paper 26.2 plugin with shadowJar
         working-directory: server
         shell: bash
-        run: bash ./gradlew --no-daemon clean shadowJar -Ptarget=26.x
+        run: bash ./gradlew --no-daemon clean shadowJar -Ptarget=26.2
 
       - name: Build Paper 1.21.11 plugin with shadowJar
         working-directory: server
         shell: bash
         run: bash ./gradlew --no-daemon shadowJar -Ptarget=1.21.11
 
+      - name: Build Paper 26.3 plugin with shadowJar
+        working-directory: server
+        shell: bash
+        run: bash ./gradlew --no-daemon shadowJar -Ptarget=26.3
+
       - name: Stage release files and checksums
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp server/build/libs/CraftEngineClientBridge-1.0.2-26.x.jar dist/
-          cp server/build/libs/CraftEngineClientBridge-1.0.2-1.21.11.jar dist/
-          cp client/build/libs/ceclientmod-26.x-1.0.2.jar dist/
-          cp client-legacy/build/libs/ceclientmod-1.21.11-1.0.2.jar dist/
+          cp server/build/libs/CraftEngineClientBridge-1.1.0-26.2.jar dist/
+          cp server/build/libs/CraftEngineClientBridge-1.1.0-26.3.jar dist/
+          cp server/build/libs/CraftEngineClientBridge-1.1.0-1.21.11.jar dist/
+          cp client/build/libs/ceclientmod-26.2-1.1.0.jar dist/
+          cp client/build/libs/ceclientmod-26.3-1.1.0.jar dist/
+          cp client-legacy/build/libs/ceclientmod-1.21.11-1.1.0.jar dist/
           sha256sum dist/*.jar > dist/SHA256SUMS.txt
 
       - name: Upload build artifacts
@@ -144,10 +172,12 @@ jobs:
           set -euo pipefail
 
           required_assets=(
-            "CraftEngineClientBridge-1.0.2-26.x.jar"
-            "CraftEngineClientBridge-1.0.2-1.21.11.jar"
-            "ceclientmod-26.x-1.0.2.jar"
-            "ceclientmod-1.21.11-1.0.2.jar"
+            "CraftEngineClientBridge-1.1.0-26.2.jar"
+            "CraftEngineClientBridge-1.1.0-26.3.jar"
+            "CraftEngineClientBridge-1.1.0-1.21.11.jar"
+            "ceclientmod-26.2-1.1.0.jar"
+            "ceclientmod-26.3-1.1.0.jar"
+            "ceclientmod-1.21.11-1.1.0.jar"
             "SHA256SUMS.txt"
           )
           for asset in "${required_assets[@]}"; do
