@@ -204,22 +204,24 @@ jobs:
 
           if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
             # One release per build: a distinct tag/title per run keeps every version's artifacts
-            # separate instead of piling several builds into a single moving release.
+            # separate instead of piling several builds into a single moving release. They are
+            # regular releases (not pre-releases) so GitHub features the newest build in the
+            # repository sidebar and under /releases/latest.
             release_tag="build-${GITHUB_RUN_NUMBER}"
             release_title="${VERSION} build ${GITHUB_RUN_NUMBER} (${GITHUB_SHA:0:7})"
             release_notes="Artifacts built from main commit ${GITHUB_SHA} (workflow run ${GITHUB_RUN_NUMBER})."
-            release_create_flags=(--prerelease --latest=false)
+            release_create_flags=()
           else
             release_tag="$GITHUB_REF_NAME"
             release_title="$GITHUB_REF_NAME"
             release_notes="Build artifacts for $GITHUB_REF_NAME."
-            release_create_flags=(--verify-tag --generate-notes --latest=false)
+            release_create_flags=(--verify-tag --generate-notes)
           fi
 
           if gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$release_tag" --repo "$GITHUB_REPOSITORY" dist/* --clobber
             gh release edit "$release_tag" --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" --title "$release_title" --notes "$release_notes" --prerelease --latest=false
+              --target "$GITHUB_SHA" --title "$release_title" --notes "$release_notes" --prerelease=false
           else
             gh release create "$release_tag" --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" --title "$release_title" --notes "$release_notes" \
