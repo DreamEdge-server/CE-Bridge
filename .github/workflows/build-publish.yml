@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      version: ${{ steps.release_version.outputs.version }}
     env:
       GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=true
     steps:
@@ -142,6 +144,18 @@ jobs:
           cp client-legacy/build/libs/ceclientmod-1.21.11-1.1.0.jar dist/
           sha256sum dist/*.jar > dist/SHA256SUMS.txt
 
+      - name: Resolve release version
+        id: release_version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(ls dist/CraftEngineClientBridge-*.jar \
+            | sed -E 's#.*/CraftEngineClientBridge-([0-9][^-]*)-.*#\1#' \
+            | sort -u | head -n1)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release version: $version"
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -168,6 +182,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
 
@@ -188,9 +203,11 @@ jobs:
           done
 
           if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
-            release_tag="latest"
-            release_title="Latest main build"
-            release_notes="Automatic build from main commit $GITHUB_SHA."
+            # One release per build: a distinct tag/title per run keeps every version's artifacts
+            # separate instead of piling several builds into a single moving release.
+            release_tag="build-${GITHUB_RUN_NUMBER}"
+            release_title="${VERSION} build ${GITHUB_RUN_NUMBER} (${GITHUB_SHA:0:7})"
+            release_notes="Artifacts built from main commit ${GITHUB_SHA} (workflow run ${GITHUB_RUN_NUMBER})."
             release_create_flags=(--prerelease --latest=false)
           else
             release_tag="$GITHUB_REF_NAME"
@@ -201,13 +218,8 @@ jobs:
 
           if gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$release_tag" --repo "$GITHUB_REPOSITORY" dist/* --clobber
-            if [[ "$release_tag" == "latest" ]]; then
-              gh api --method PATCH \
-                "repos/${GITHUB_REPOSITORY}/git/refs/tags/${release_tag}" \
-                -f "sha=${GITHUB_SHA}" -F "force=true" >/dev/null
-              gh release edit "$release_tag" --repo "$GITHUB_REPOSITORY" \
-                --target "$GITHUB_SHA" --title "$release_title" --notes "$release_notes" --prerelease --latest=false
-            fi
+            gh release edit "$release_tag" --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --title "$release_title" --notes "$release_notes" --prerelease --latest=false
           else
             gh release create "$release_tag" --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" --title "$release_title" --notes "$release_notes" \
