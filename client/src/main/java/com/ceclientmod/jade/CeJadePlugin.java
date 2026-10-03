@@ -39,11 +39,28 @@ public final class CeJadePlugin implements IWailaPlugin {
         registration.registerEntityIcon(new CeFurnitureIconProvider(), Entity.class);
         registration.addTooltipCollectedCallback(Integer.MAX_VALUE, (box, accessor) -> {
             if (!(accessor instanceof BlockAccessor blockAccessor)) return;
+            ITooltip tooltip = box.getTooltip();
             CraftEngineClientModInit.blockIcons().iconFor(blockAccessor.getBlockState())
-                    .ifPresent(stack -> box.getTooltip().replace(
+                    .ifPresent(stack -> tooltip.replace(
                             JadeIds.CORE_OBJECT_NAME,
                             IThemeHelper.get().title(stack.getHoverName())));
+            CraftEngineClientModInit.blocks().ceIdFor(blockAccessor.getBlockState())
+                    .ifPresent(ceId -> {
+                        // Jade's own bottom mod-name line is resolved from the vanilla carrier block/item,
+                        // so a CraftEngine block would be labelled "Minecraft". Show the CraftEngine id's
+                        // namespace instead, keeping Jade's mod-name styling.
+                        tooltip.replace(JadeIds.CORE_MOD_NAME, IThemeHelper.get().modName(namespaceOf(ceId)));
+                        // Vanilla providers describe the carrier block the CraftEngine block is disguised
+                        // as - e.g. a note block's instrument/note ("Snare Drum F"). That is disguise
+                        // noise for a CraftEngine block, so drop those lines.
+                        tooltip.remove(JadeIds.MC_NOTE_BLOCK);
+                    });
         });
+    }
+
+    private static String namespaceOf(String ceId) {
+        int colon = ceId.indexOf(':');
+        return colon < 0 ? ceId : ceId.substring(0, colon);
     }
 
     private static final class CeBlockComponentProvider implements IBlockComponentProvider {
@@ -57,6 +74,9 @@ public final class CeJadePlugin implements IWailaPlugin {
 
         @Override
         public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
+            // The raw CraftEngine id is diagnostic detail - like Jade's own coordinate/registry-name
+            // lines, only show it in details mode (Shift by default).
+            if (!accessor.showDetails()) return;
             CraftEngineClientModInit.blocks().ceIdFor(accessor.getBlockState())
                     .ifPresent(ceId -> tooltip.add(Component.literal("CraftEngine: " + ceId)));
         }

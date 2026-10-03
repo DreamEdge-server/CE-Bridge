@@ -15,18 +15,18 @@ CraftEngine 通过 `item_model` 等数据组件在**服务端到客户端的封�
 - **`client/`**（`CraftEngineClientMod`，Fabric 模组）：接收上述数据，喂给 JEI 的物品列表和自定义 JEI 展示分类（合成台复用 JEI 自带展示能力加精确材质覆盖；锻造台由于 JEI 没有对应的精确展示接口，改为完全自定义的 `IRecipeCategory` 手动摆放四个格子），并给 Jade 提供 CraftEngine 方块和家具的真实图标。该目录构建 26.2 客户端（Fabric 依赖保持基线不变），并额外提供 26.3 构建目标。
 - **`client-legacy/`**：独立的 Minecraft 1.21.11 Fabric 客户端；它使用独立的 Yarn/JEI/Jade API。
 
-## Jade 26.2 如何显示 CraftEngine 方块和家具
+## Jade 如何显示 CraftEngine 方块和家具（26.2 / 26.3）
 
 客户端在世界里看到的 CraftEngine 方块仍然是音符盒、绊线等原版视觉状态，Jade 因此默认只能显示原版图标和名称。按下面的链路恢复真实外观：
 
 1. 服务端遍历 CraftEngine 已加载物品，从物品行为中的 `BlockItem.block()` 找到它对应的 CraftEngine 方块。
 2. 服务端把这个方块的每个客户端视觉 `BlockState` 映射到对应物品经过 CraftEngine S2C 转换后的精确外观，包括基础材质、`custom_model_data`、`item_model` 和名称组件。
-3. 26.2 客户端收到 `block_icons` 后，以视觉状态为键缓存重建出的 `ItemStack`。Jade 查询方块时直接调用自己的物品渲染器显示该物品。
-4. Jade 的默认名称、方块朝向和无障碍详情由不同提供器生成。桥接在所有 Jade 组件收集完成后的最终回调中，用同一个 `ItemStack.getHoverName()` 替换 `CORE_OBJECT_NAME`，所以普通模式和按住 Shift 的详细模式都会显示 CraftEngine 名称，也不会残留“音符盒（东）”一类伪装方块信息。
+3. 26.2/26.3 客户端收到 `block_icons` 后，以视觉状态为键缓存重建出的 `ItemStack`。Jade 查询方块时直接调用自己的物品渲染器显示该物品。
+4. Jade 的默认名称、方块朝向和无障碍详情由不同提供器生成。桥接在所有 Jade 组件收集完成后的最终回调里做三件事：用同一个 `ItemStack.getHoverName()` 替换 `CORE_OBJECT_NAME`（普通模式和详细模式都会显示 CraftEngine 名称，也不会残留“音符盒（东）”一类伪装方块信息）；把底部那行模组名（`CORE_MOD_NAME`，Jade 按原版载体方块解析，CraftEngine 方块本来会显示成 Minecraft）换成 CraftEngine ID 的命名空间；并移除只描述载体的原版行（如音符盒的音色/音高）。CraftEngine 原始 ID（`CraftEngine: <id>`）属于诊断信息，只在 Jade 详细模式（默认按住 Shift）显示。
 
 家具方面，物品展示测试发现不需要动，没管它， Jade/CraftEngine 实体本身已经正确的名称，不做额外覆盖。（实际上家具类型还挺多的，我懒得一一兼容了，如果有需要可以提ISSUE）
 
-这些 Jade 图标和标题增强目前只在 Minecraft 26.2 客户端实现，`client-legacy/` 的 1.21.11 客户端不包含这套新通道。
+这些 Jade 图标和标题增强目前只在 `client/`（26.2 / 26.3）客户端实现，`client-legacy/` 的 1.21.11 客户端不包含这套新通道。
 
 ## 依赖要求(这里直接放构建时用的东西了)
 
