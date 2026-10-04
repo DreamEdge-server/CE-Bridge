@@ -37,8 +37,14 @@ public final class BridgeCommand implements CommandExecutor, TabCompleter {
         }
         switch (args[0].toLowerCase()) {
             case "reload" -> {
-                syncManager.rebuild();
-                sender.sendMessage("§aRebuilt item/block/brewing sync caches from CraftEngine.");
+                // CraftEngine's recipe registries are plain EnumMap/LinkedHashMap/ArrayList structures that
+                // its own reload mutates on the tick thread, so they must not be read from a Folia region
+                // thread. Hand the rebuild to the global region scheduler - on Paper that is the main thread.
+                plugin.getServer().getGlobalRegionScheduler().execute(plugin, () -> {
+                    syncManager.rebuild();
+                    plugin.getLogger().info("CraftEngine sync caches rebuilt on request of " + sender.getName());
+                });
+                sender.sendMessage("§aQueued a CraftEngine sync rebuild; see the server log for the result.");
             }
             case "resync" -> {
                 if (sender instanceof Player player) {

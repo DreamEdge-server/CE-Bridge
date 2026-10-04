@@ -16,6 +16,7 @@ import net.momirealms.craftengine.bukkit.api.CraftEngineFurniture;
 import net.momirealms.craftengine.bukkit.entity.furniture.BukkitFurniture;
 import net.momirealms.craftengine.core.item.Item;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -34,7 +35,7 @@ public final class CraftEngineClientBridge extends JavaPlugin implements Listene
 
     private SyncManager syncManager;
     private final BridgeCompatibilityGate compatibilityGate = new BridgeCompatibilityGate();
-    private final java.util.Map<java.util.UUID, FixedWindowRateLimiter> furnitureProbeLimits = new java.util.HashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<java.util.UUID, FixedWindowRateLimiter> furnitureProbeLimits = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Override
     public void onEnable() {
@@ -128,6 +129,11 @@ public final class CraftEngineClientBridge extends JavaPlugin implements Listene
                 return new JadeIconProtocol.FurnitureIcon(probe.requestId(), probe.entityId(), "", new byte[0]);
             }
             org.bukkit.entity.Entity target = handle.getBukkitEntity();
+            if (!Bukkit.isOwnedByCurrentRegion(target)) {
+                // Folia: another region owns this entity, and CraftEntity#getHandle throws
+                // "Accessing entity state off owning region's thread" for it - report "no icon" instead.
+                return new JadeIconProtocol.FurnitureIcon(probe.requestId(), probe.entityId(), "", new byte[0]);
+            }
             if (target.getWorld() != player.getWorld()
                     || target.getLocation().distanceSquared(player.getLocation()) > 64.0) {
                 return new JadeIconProtocol.FurnitureIcon(probe.requestId(), probe.entityId(), "", new byte[0]);
@@ -169,18 +175,17 @@ public final class CraftEngineClientBridge extends JavaPlugin implements Listene
         // server (getListeningPluginChannels() is still empty at PlayerJoinEvent) - delay a moment so it
         // has time to arrive. The client-side HELLO handshake (onPluginMessageReceived above) is the
         // primary trigger. The gate below prevents this fallback from sending before compatibility is
-        // established.
+        // established. Folia has no main thread, so the fallback delay is scheduled on the player's own
+        // EntityScheduler; on Paper this is the main thread.
         Player player = event.getPlayer();
         compatibilityGate.clear(player.getUniqueId());
-        getServer().getScheduler().runTaskLater(this, () -> {
-            if (player.isOnline()) {
-                pushAllTo(player);
-            }
-        }, 40L);
+        player.getScheduler().runDelayed(this, task -> pushAllTo(player), null, 40L);
     }
 
     @EventHandler
     public void onCraftEngineReload(CraftEngineReloadEvent event) {
+        // CraftEngine fires this event from its own sync executor (global region tick thread on Folia,
+        // main thread on Paper), so this rebuild is always on the tick thread its registries require.
         syncManager.rebuild();
         for (Player player : getServer().getOnlinePlayers()) {
             pushAllTo(player);
@@ -193,7 +198,20 @@ public final class CraftEngineClientBridge extends JavaPlugin implements Listene
         furnitureProbeLimits.remove(event.getPlayer().getUniqueId());
     }
 
+    /** Pushes the full sync to one player. Runs inline when already on that player's owning thread - always
+     *  true on Paper's main thread and on Folia when called from that player's region thread - and otherwise
+     *  hops onto it, which is what the cross-player fan-outs need: on Folia the thread that triggers those
+     *  (the global region tick thread on a CraftEngine reload, the console/RCON thread on /cebridge resync)
+     *  owns none of the players. */
     public void pushAllTo(Player player) {
+        if (Bukkit.isOwnedByCurrentRegion(player)) {
+            pushAllToOwned(player);
+            return;
+        }
+        player.getScheduler().run(this, task -> pushAllToOwned(player), null);
+    }
+
+    private void pushAllToOwned(Player player) {
         if (!compatibilityGate.isCompatible(player.getUniqueId())) {
             return;
         }
