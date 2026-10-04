@@ -7,7 +7,10 @@ import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
 import net.momirealms.craftengine.bukkit.item.BukkitItemDefinition;
 import net.momirealms.craftengine.bukkit.item.BukkitItemManager;
 import net.momirealms.craftengine.bukkit.item.recipe.BukkitRecipeManager;
+import net.momirealms.craftengine.bukkit.plugin.BukkitCraftEngine;
 import net.momirealms.craftengine.core.block.BlockDefinition;
+import net.momirealms.craftengine.core.block.BlockRegistryMirror;
+import net.momirealms.craftengine.core.block.BlockStateWrapper;
 import net.momirealms.craftengine.core.block.ImmutableBlockState;
 import net.momirealms.craftengine.core.item.Item;
 import net.momirealms.craftengine.core.item.ItemBuildContext;
@@ -523,6 +526,31 @@ public final class SyncManager {
         return countPrefixed(entries);
     }
 
+    /** CraftEngine rewrites block states on the way to the client: on top of the assigned "visual"
+     *  state, its block-state mappings collapse visually identical states (tripwire, non-harp note
+     *  blocks, campfires, farmland, ...) onto a canonical state. Which of the two a client ends up
+     *  storing depends on the carrier, so both are published - the client cache is a plain map keyed by
+     *  state, and a superset of keys cannot break a lookup, whereas publishing only one of them makes
+     *  the other carrier family silently fall back to the vanilla block (e.g. Farmer's Delight crops
+     *  showing as "Tripwire"). */
+    private static List<String> clientsideStateStrings(ImmutableBlockState state) {
+        BlockStateWrapper visual = state.visualBlockState();
+        if (visual == null) return List.of();
+        String visualString = visual.getAsString();
+        try {
+            int remapped = BukkitCraftEngine.instance().networkManager()
+                    .remapBlockState(visual.registryId(), false);
+            BlockStateWrapper mapped = BlockRegistryMirror.byId(remapped);
+            if (mapped != null) {
+                String mappedString = mapped.getAsString();
+                if (!mappedString.equals(visualString)) return List.of(visualString, mappedString);
+            }
+        } catch (Throwable ignored) {
+            // fall through with the unremapped state
+        }
+        return List.of(visualString);
+    }
+
     private byte[] buildBlocksPayload() {
         Map<Key, BlockDefinition> loaded;
         try {
@@ -535,13 +563,13 @@ public final class SyncManager {
         for (Map.Entry<Key, BlockDefinition> e : loaded.entrySet()) {
             try {
                 for (ImmutableBlockState state : e.getValue().variantProvider().states()) {
-                    if (state.visualBlockState() == null) continue;
-                    String visual = state.visualBlockState().getAsString();
-                    ByteArrayOutputStream ebos = new ByteArrayOutputStream();
-                    DataOutputStream eout = new DataOutputStream(ebos);
-                    eout.writeUTF(e.getKey().asString());
-                    eout.writeUTF(visual);
-                    entries.add(ebos.toByteArray());
+                    for (String visual : clientsideStateStrings(state)) {
+                        ByteArrayOutputStream ebos = new ByteArrayOutputStream();
+                        DataOutputStream eout = new DataOutputStream(ebos);
+                        eout.writeUTF(e.getKey().asString());
+                        eout.writeUTF(visual);
+                        entries.add(ebos.toByteArray());
+                    }
                 }
             } catch (Throwable t) {
                 plugin.getLogger().log(Level.WARNING, "Failed to export CraftEngine block '" + e.getKey() + "' for sync", t);
@@ -583,9 +611,9 @@ public final class SyncManager {
             try {
                 byte[] appearance = encodeItemAppearance(stack);
                 for (ImmutableBlockState state : entry.getValue().variantProvider().states()) {
-                    if (state.visualBlockState() == null) continue;
-                    icons.add(new JadeIconProtocol.BlockIcon(
-                            state.visualBlockState().getAsString(), entry.getKey().asString(), appearance));
+                    for (String visual : clientsideStateStrings(state)) {
+                        icons.add(new JadeIconProtocol.BlockIcon(visual, entry.getKey().asString(), appearance));
+                    }
                 }
             } catch (Throwable t) {
                 plugin.getLogger().log(Level.WARNING, "Failed to export Jade icon for CraftEngine block '" + entry.getKey() + "'", t);

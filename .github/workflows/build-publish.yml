@@ -136,11 +136,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp server/build/libs/CraftEngineClientBridge-1.2.0-26.2.jar dist/
-          cp server/build/libs/CraftEngineClientBridge-1.2.0-26.3.jar dist/
-          cp server/build/libs/CraftEngineClientBridge-1.2.0-1.21.11.jar dist/
-          cp client/build/libs/ceclientmod-26.2-1.1.0.jar dist/
-          cp client/build/libs/ceclientmod-26.3-1.1.0.jar dist/
+          cp server/build/libs/CraftEngineClientBridge-1.2.1-26.2.jar dist/
+          cp server/build/libs/CraftEngineClientBridge-1.2.1-26.3.jar dist/
+          cp server/build/libs/CraftEngineClientBridge-1.2.1-1.21.11.jar dist/
+          cp client/build/libs/ceclientmod-26.2-1.2.1.jar dist/
+          cp client/build/libs/ceclientmod-26.3-1.2.1.jar dist/
           cp client-legacy/build/libs/ceclientmod-1.21.11-1.1.0.jar dist/
           sha256sum dist/*.jar > dist/SHA256SUMS.txt
 
@@ -187,11 +187,11 @@ jobs:
           set -euo pipefail
 
           required_assets=(
-            "CraftEngineClientBridge-1.2.0-26.2.jar"
-            "CraftEngineClientBridge-1.2.0-26.3.jar"
-            "CraftEngineClientBridge-1.2.0-1.21.11.jar"
-            "ceclientmod-26.2-1.1.0.jar"
-            "ceclientmod-26.3-1.1.0.jar"
+            "CraftEngineClientBridge-1.2.1-26.2.jar"
+            "CraftEngineClientBridge-1.2.1-26.3.jar"
+            "CraftEngineClientBridge-1.2.1-1.21.11.jar"
+            "ceclientmod-26.2-1.2.1.jar"
+            "ceclientmod-26.3-1.2.1.jar"
             "ceclientmod-1.21.11-1.1.0.jar"
             "SHA256SUMS.txt"
           )

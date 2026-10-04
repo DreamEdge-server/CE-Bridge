@@ -74,6 +74,16 @@ public final class CeJadePlugin implements IWailaPlugin {
 
         @Override
         public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
+            // Jade's own object-name/mod-name lines describe the vanilla carrier block ("Tripwire" /
+            // "Minecraft"); replace them with the CraftEngine item's identity. Doing it here - in the
+            // block component provider, which is guaranteed to be invoked - instead of relying only on
+            // the tooltip-collected callback, which some Jade versions do not call for every accessor.
+            CraftEngineClientModInit.blockIcons().iconFor(accessor.getBlockState()).ifPresent(stack ->
+                    tooltip.replace(JadeIds.CORE_OBJECT_NAME, IThemeHelper.get().title(stack.getHoverName())));
+            CraftEngineClientModInit.blocks().ceIdFor(accessor.getBlockState()).ifPresent(ceId -> {
+                tooltip.replace(JadeIds.CORE_MOD_NAME, IThemeHelper.get().modName(namespaceOf(ceId)));
+                tooltip.remove(JadeIds.MC_NOTE_BLOCK);
+            });
             // The raw CraftEngine id is diagnostic detail - like Jade's own coordinate/registry-name
             // lines, only show it in details mode (Shift by default).
             if (!accessor.showDetails()) return;

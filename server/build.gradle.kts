@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.ceclientbridge"
-version = "1.2.0"
+version = "1.2.1"
 
 data class ServerProfile(
     val paperDevBundle: String,
